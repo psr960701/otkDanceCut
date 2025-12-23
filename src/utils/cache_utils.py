@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import threading
+import os
+import json
+import sys
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity=100):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+        self.lock = threading.Lock()
+    
+    def get(self, key):
+        with self.lock:
+            if key not in self.cache:
+                return None
+            else:
+                self.cache.move_to_end(key)
+                return self.cache[key]
+    
+    def put(self, key, value):
+        with self.lock:
+            if key in self.cache:
+                del self.cache[key]
+            elif len(self.cache) >= self.capacity:
+                self.cache.popitem(last=False)
+            self.cache[key] = value
+    
+    def __contains__(self, key):
+        with self.lock:
+            return key in self.cache
+    
+    def clear(self):
+        with self.lock:
+            self.cache.clear()
+
+def load_duration_cache(cache_file):
+    """从JSON文件加载时长缓存"""
+    duration_cache = {}
+    try:
+        if os.path.exists(cache_file):
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                old_cache = json.load(f)
+        
+        # 处理旧缓存数据，转换为新格式
+        for old_key, old_value in old_cache.items():
+            try:
+                # 提取文件名作为新的缓存键
+                if isinstance(old_value, dict) and "duration" in old_value:
+                    # 已经是新格式，直接使用
+                    cache_key = os.path.basename(old_key)
+                    duration_cache[cache_key] = old_value
+                else:
+                    # 旧格式，转换为新格式
+                    cache_key = os.path.basename(old_key)
+                    duration_cache[cache_key] = {
+                        "duration": old_value,
+                        "cache_time": time.time()  # 使用当前时间作为缓存时间
+                    }
+            except Exception as e:
+                print(f"转换缓存键 {old_key} 失败：{e}")
+                # 保留原键作为后备
+                cache_key = os.path.basename(old_key)
+                duration_cache[cache_key] = {
+                    "duration": old_value,
+                    "cache_time": time.time()
+                }
+    except Exception as e:
+        print(f"加载时长缓存失败：{e}")
+    return duration_cache
+
+def save_duration_cache(cache_file, duration_cache):
+    """将时长缓存保存到JSON文件"""
+    try:
+        # 保存缓存（已经是按文件名唯一的格式）
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            json.dump(duration_cache, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"保存时长缓存失败：{e}")
+
+import time
+
+def get_audio_duration(file_path, duration_cache):
+    """获取音频文件的时长，优先从缓存获取，没有时计算并更新缓存"""
+    # 仅使用文件名作为缓存键
+    abs_path = os.path.abspath(file_path)
+    cache_key = os.path.basename(abs_path)
+    
+    # 检查缓存
+    if cache_key in duration_cache:
+        return duration_cache[cache_key]["duration"]
+    
+    # 检查是否有同名文件已在缓存中（已修改为仅使用文件名，此检查已不再需要）
+    
+    try:
+        from pydub import AudioSegment
+        # 支持多种音频格式，而不仅仅是MP3
+        audio = AudioSegment.from_file(abs_path)
+        duration = len(audio) / 1000
+        
+        # 保存到缓存，增加缓存时长属性
+        duration_cache[cache_key] = {
+            "duration": duration,
+            "cache_time": time.time()
+        }
+        
+        return duration
+    except Exception as e:
+        print(f"计算{os.path.basename(abs_path)}时长失败：{e}")
+        # 尝试使用ffprobe命令行工具获取时长
+        try:
+            import subprocess
+            import json
+            
+            # 使用ffprobe获取时长
+            cmd = [
+                'ffprobe',
+                '-v', 'quiet',
+                '-print_format', 'json',
+                '-show_format',
+                abs_path
+            ]
+            # 不使用check=True，避免命令失败时抛出异常
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                info = json.loads(result.stdout)
+                duration = float(info['format']['duration'])
+                
+                # 保存到缓存，增加缓存时长属性
+                duration_cache[cache_key] = {
+                    "duration": duration,
+                    "cache_time": time.time()
+                }
+                return duration
+            else:
+                print(f"使用ffprobe计算{os.path.basename(abs_path)}时长失败，返回码：{result.returncode}")
+                return 0
+        except Exception as e2:
+            print(f"使用ffprobe计算{os.path.basename(abs_path)}时长也失败：{e2}")
+            return 0

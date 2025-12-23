@@ -1,0 +1,59 @@
+# 音频文件
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.wma
+*.m4a
+
+# 视频文件
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.mkv
+*.webm
+
+# 缓存文件
+*.cache
+*.json
+/dist/duration_cache.json
+
+# Python编译文件
+*.pyc
+__pycache__/
+*.pyo
+
+# 系统临时文件
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+logs/
+
+# 配置文件（如果包含敏感信息）
+*.ini
+*.conf
+.env
+
+# 可执行文件
+*.exe
+*.bin
+*.out
+
+# IDE/编辑器文件
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
