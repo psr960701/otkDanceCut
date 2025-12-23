@@ -49,6 +49,10 @@ logs/
 *.bin
 *.out
 
+# 构建目录
+build/
+音乐剪辑器/
+
 # IDE/编辑器文件
 .vscode/
 .idea/
