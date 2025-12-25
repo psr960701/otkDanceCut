@@ -46,9 +46,6 @@ logs/
 
 # 可执行文件
 *.exe
-!ffmpeg/
-!ffmpeg/ffmpeg.exe
-!ffmpeg/ffprobe.exe
 *.bin
 *.out
 
