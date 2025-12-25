@@ -5,7 +5,7 @@ a = Analysis(
     ['src/main.py'],
     pathex=['.'],
     binaries=[],
-    datas=[('倒计时.mp3', '.'), ('随舞/*', '随舞'), ('曲库/*', '曲库'), ('src/', 'src')],
+    datas=[('倒计时.mp3', '.'), ('src/', 'src')],
     hiddenimports=['src.utils', 'src.utils.cache_utils', 'src.threads.worker_threads', 'src.core.audio_processor', 'src.ui.ui_components'],
     hookspath=[],
     hooksconfig={},
