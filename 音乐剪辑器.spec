@@ -4,7 +4,7 @@
 a = Analysis(
     ['src/main.py'],
     pathex=['.'],
-    binaries=[],
+    binaries=[('ffmpeg/ffmpeg.exe', 'ffmpeg'), ('ffmpeg/ffprobe.exe', 'ffmpeg')],
     datas=[('倒计时.mp3', '.'), ('src/', 'src')],
     hiddenimports=['src.utils', 'src.utils.cache_utils', 'src.utils.fix_encoding', 'src.utils.update_cache', 'src.threads.worker_threads', 'src.core.audio_processor', 'src.core.audio_splicer', 'src.ui.ui_components'],
     hookspath=[],

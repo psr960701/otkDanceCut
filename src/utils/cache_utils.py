@@ -7,6 +7,36 @@ import json
 import sys
 from collections import OrderedDict
 
+# 新增：动态获取ffprobe路径函数
+def get_ffprobe_path():
+    """
+    根据运行环境动态获取ffprobe路径
+    在开发环境中使用项目内的ffmpeg/ffprobe.exe
+    在打包环境中使用打包后的ffprobe.exe
+    """
+    if getattr(sys, 'frozen', False):
+        # 打包环境
+        base_path = sys._MEIPASS
+    else:
+        # 开发环境，获取项目根目录
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    return os.path.join(base_path, 'ffmpeg', 'ffprobe.exe')
+
+# 新增：动态获取ffmpeg路径函数
+def get_ffmpeg_path():
+    """
+    根据运行环境动态获取ffmpeg路径
+    在开发环境中使用项目内的ffmpeg/ffmpeg.exe
+    在打包环境中使用打包后的ffmpeg.exe
+    """
+    if getattr(sys, 'frozen', False):
+        # 打包环境
+        base_path = sys._MEIPASS
+    else:
+        # 开发环境，获取项目根目录
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    return os.path.join(base_path, 'ffmpeg', 'ffmpeg.exe')
+
 class LRUCache:
     def __init__(self, capacity=100):
         self.cache = OrderedDict()
@@ -118,7 +148,7 @@ def get_audio_duration(file_path, duration_cache):
             
             # 使用ffprobe获取时长
             cmd = [
-                'ffprobe',
+                get_ffprobe_path(),
                 '-v', 'quiet',
                 '-print_format', 'json',
                 '-show_format',
