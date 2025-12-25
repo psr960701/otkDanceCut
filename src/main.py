@@ -18,6 +18,7 @@ if project_root not in sys.path:
 
 # 首先导入并调用抑制功能，确保在任何子进程调用之前执行
 from src.utils import utils
+utils.suppress_libpng_warnings()
 utils.suppress_subprocess_windows()
 
 # 然后再导入其他模块

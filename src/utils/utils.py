@@ -7,6 +7,27 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 # 禁止子进程弹出窗口
+
+def suppress_libpng_warnings():
+    """抑制libpng警告"""
+    import os
+    import logging
+    import warnings
+    
+    # 设置环境变量来抑制libpng警告
+    os.environ['PNG_SKIP_sRGB_CHECK'] = '1'
+    os.environ['PNG_SKIP_iCCP_CHECK'] = '1'
+    
+    # 过滤掉libpng相关的警告
+    warnings.filterwarnings("ignore", category=RuntimeWarning, module="png")
+    warnings.filterwarnings("ignore", category=UserWarning, module="png")
+    
+    # 配置日志记录器
+    logger = logging.getLogger()
+    for handler in logger.handlers:
+        handler.addFilter(lambda record: "libpng" not in record.getMessage())
+
+
 def suppress_subprocess_windows():
     if hasattr(subprocess, 'CREATE_NO_WINDOW'):
         create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
