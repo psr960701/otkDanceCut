@@ -41,6 +41,7 @@ def load_duration_cache(cache_file):
     """从JSON文件加载时长缓存"""
     duration_cache = {}
     try:
+        old_cache = {}
         if os.path.exists(cache_file):
             with open(cache_file, 'r', encoding='utf-8') as f:
                 old_cache = json.load(f)
