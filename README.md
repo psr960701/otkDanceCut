@@ -179,13 +179,52 @@ UI组件定义，负责构建和管理程序的图形界面。
    - 测试空目录或不存在的目录情况
    - 测试不同时长的音频文件拼接
 
+## ffmpeg配置
+
+由于ffmpeg.exe和ffprobe.exe文件较大（超过100MB），无法直接推送到GitHub仓库，您需要手动添加ffmpeg工具：
+
+### 手动添加ffmpeg方法
+
+1. **下载ffmpeg**：
+   - 访问[ffmpeg官方网站](https://ffmpeg.org/download.html)
+   - 选择适合您操作系统的版本下载（建议下载静态版本）
+   
+2. **安装配置**：
+   - 解压下载的压缩包
+   - 将解压后得到的`ffmpeg.exe`和`ffprobe.exe`文件复制到项目根目录下的`ffmpeg`文件夹中
+   - 确保目录结构为：`项目根目录/ffmpeg/ffmpeg.exe`和`项目根目录/ffmpeg/ffprobe.exe`
+
+### 将ffmpeg推送到git的免费方法
+
+如果您希望将ffmpeg文件包含在git仓库中，可以使用以下方法：
+
+1. **使用Git LFS（Large File Storage）**：
+   ```bash
+   # 安装Git LFS
+   git lfs install
+   
+   # 跟踪大文件
+   git lfs track "ffmpeg/ffmpeg.exe"
+   git lfs track "ffmpeg/ffprobe.exe"
+   
+   # 提交并推送
+   git add .gitattributes ffmpeg/ffmpeg.exe ffmpeg/ffprobe.exe
+   git commit -m "Add ffmpeg binaries"
+   git push origin master
+   ```
+
+2. **提供下载链接**：
+   - 在README中提供ffmpeg的下载链接
+   - 编写自动下载脚本，在程序首次运行时自动下载ffmpeg
+
 ## 注意事项
 
 1. 确保`随舞`和`曲库`目录存在于程序运行目录
 2. 确保`倒计时.mp3`文件存在于程序运行目录
-3. 支持的音频格式：MP3、WAV、OGG、FLAC、AAC、M4A、WMA
-4. 拼接后的音频默认保存为MP3格式
-5. 程序会自动计算音频时长并缓存，首次运行可能需要较长时间
+3. 确保ffmpeg已正确配置（参考上面的ffmpeg配置部分）
+4. 支持的音频格式：MP3、WAV、OGG、FLAC、AAC、M4A、WMA
+5. 拼接后的音频默认保存为MP3格式
+6. 程序会自动计算音频时长并缓存，首次运行可能需要较长时间
 
 ## 更新日志
 
