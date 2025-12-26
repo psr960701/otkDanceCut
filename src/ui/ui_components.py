@@ -216,10 +216,16 @@ class UiComponents:
         self.main_window.duration_label.setStyleSheet("color: #333; font-weight: bold;")
         control_layout.addWidget(self.main_window.duration_label)
         
-        # 进度条
+        # 主进度条（用于整体拼接过程）
         self.main_window.progress_bar = QProgressBar()
         self.main_window.progress_bar.setVisible(False)
         control_layout.addWidget(self.main_window.progress_bar)
+        
+        # 保存进度条（用于音频保存过程）
+        self.main_window.save_progress_bar = QProgressBar()
+        self.main_window.save_progress_bar.setVisible(False)
+        self.main_window.save_progress_bar.setStyleSheet("background-color: #e3f2fd;")
+        control_layout.addWidget(self.main_window.save_progress_bar)
         
         # 状态标签
         self.main_window.status_label = QLabel("就绪")

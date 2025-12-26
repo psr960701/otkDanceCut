@@ -6,13 +6,13 @@ a = Analysis(
     pathex=['.'],
     binaries=[('ffmpeg/ffmpeg.exe', 'ffmpeg'), ('ffmpeg/ffprobe.exe', 'ffmpeg')],
     datas=[('src/', 'src')],
-    hiddenimports=['src.utils', 'src.utils.cache_utils', 'src.utils.fix_encoding', 'src.utils.update_cache', 'src.threads.worker_threads', 'src.core.audio_processor', 'src.core.audio_splicer', 'src.ui.ui_components'],
+    hiddenimports=['src.utils', 'src.utils.cache_utils', 'src.utils.fix_encoding', 'src.utils.update_cache', 'src.threads.worker_threads', 'src.core.audio_processor', 'src.ui.ui_components'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
-    optimize=0,
+    optimize=1,
 )
 pyz = PYZ(a.pure)
 

@@ -41,6 +41,7 @@ class BackgroundLoader(QThread):
 
 class SplicingThread(QThread):
     progress_updated = pyqtSignal(int)
+    save_progress_updated = pyqtSignal(int)
     status_updated = pyqtSignal(str)
     finished = pyqtSignal(bool, str)
     
@@ -154,6 +155,7 @@ class SplicingThread(QThread):
             
             # 保存结果
             self.status_updated.emit(f"正在保存到 {self.output_file}...")
+            self.progress_updated.emit(80)  # 设置保存开始时的主进度值
             # 确保输出目录存在
             output_dir = os.path.dirname(self.output_file)
             if output_dir and not os.path.exists(output_dir):
@@ -162,10 +164,45 @@ class SplicingThread(QThread):
                     self.status_updated.emit(f"已创建输出目录：{output_dir}")
                 except Exception as e:
                     self.status_updated.emit(f"创建输出目录失败：{e}")
+            # 创建一个线程来模拟保存进度更新
+            def update_save_progress():
+                # 模拟保存过程中的进度更新（0%-100%）
+                import time
+                # 估算保存时间（假设平均每分钟音频需要2秒保存时间）
+                audio_length_sec = len(result) / 1000
+                estimated_save_time = max(1.0, (audio_length_sec / 60) * 2)
+                
+                # 每0.5秒更新一次进度
+                update_interval = 0.5
+                total_updates = int(estimated_save_time / update_interval)
+                
+                for i in range(total_updates + 1):
+                    # 计算当前进度（0-100%）
+                    progress = min(100, int((i / total_updates) * 100))
+                    self.save_progress_updated.emit(progress)
+                    time.sleep(update_interval)
+            
+            # 启动保存进度更新线程
+            save_progress_thread = threading.Thread(target=update_save_progress)
+            save_progress_thread.daemon = True
+            save_progress_thread.start()
+            
+            # 导出音频文件
             result.export(self.output_file, format="mp3")
+            self.save_progress_updated.emit(100)  # 保存完成后更新保存进度条
+            self.progress_updated.emit(90)  # 保存完成后更新主进度条
             
             # 生成音乐顺序文件
-            base_name = "音乐顺序"
+            # 获取音频输出文件的目录和文件名（不含扩展名）
+            output_dir = os.path.dirname(self.output_file)
+            output_filename = os.path.basename(self.output_file)
+            # 移除扩展名
+            if '.' in output_filename:
+                output_name_without_ext = output_filename.rsplit('.', 1)[0]
+            else:
+                output_name_without_ext = output_filename
+            # 构造音乐顺序文件路径（与输出文件同名，扩展名为.txt）
+            base_name = os.path.join(output_dir, output_name_without_ext)
             extension = ".txt"
             playlist_file = utils.get_unique_filename(base_name, extension)
             try:
@@ -179,15 +216,18 @@ class SplicingThread(QThread):
                         # 提取纯净的歌曲名
                         pure_song_name = utils.extract_song_name(song)
                         f.write(f"{pure_song_name}\n")
-                    self.status_updated.emit(f"已生成音乐顺序文件：{playlist_file}")
+                    self.status_updated.emit(f"已生成音乐顺序文件：{os.path.basename(playlist_file)}")
             except Exception as e:
                 self.status_updated.emit(f"生成音乐顺序文件失败：{e}")
+            
+            self.progress_updated.emit(95)  # 生成音乐顺序文件完成后更新进度值
             
             # 计算总时长
             total_duration = len(result) / 1000
             duration_str = str(timedelta(seconds=int(total_duration)))
             
-            self.finished.emit(True, f"拼接完成！总时长：{duration_str}\n输出文件：{self.output_file}\n音乐顺序已保存到：{playlist_file}")
+            self.progress_updated.emit(100)  # 所有任务完成，设置进度条为100%
+            self.finished.emit(True, f"拼接完成！总时长：{duration_str}\n输出文件：{self.output_file}\n音乐顺序已保存到：{os.path.basename(playlist_file)}")
             
         except Exception as e:
             self.finished.emit(False, f"拼接过程中发生错误：{e}")

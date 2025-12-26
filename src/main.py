@@ -340,6 +340,8 @@ class MusicCutterApp(QMainWindow):
             
             # 连接信号
             self.splicing_thread.progress_updated.connect(self.progress_bar.setValue)
+            self.splicing_thread.progress_updated.connect(self.handle_progress_for_save_bar)
+            self.splicing_thread.save_progress_updated.connect(self.save_progress_bar.setValue)
             self.splicing_thread.status_updated.connect(self.status_label.setText)
             self.splicing_thread.finished.connect(self.on_merge_finished)
             
@@ -349,13 +351,24 @@ class MusicCutterApp(QMainWindow):
             # 启动线程
             self.splicing_thread.start()
     
+    def handle_progress_for_save_bar(self, progress):
+        """根据主进度条的值控制保存进度条的显示和隐藏"""
+        if progress == 80:
+            # 开始保存，显示保存进度条
+            self.save_progress_bar.setValue(0)
+            self.save_progress_bar.setVisible(True)
+        elif progress == 90:
+            # 保存完成，隐藏保存进度条
+            self.save_progress_bar.setVisible(False)
+    
     def on_merge_finished(self, success, message):
         """拼接完成后的处理"""
         # 启用按钮
         self.merge_button.setEnabled(True)
         
-        # 隐藏进度条
+        # 隐藏所有进度条
         self.progress_bar.setVisible(False)
+        self.save_progress_bar.setVisible(False)
         
         # 更新状态并显示消息
         if success:

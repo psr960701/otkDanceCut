@@ -35,81 +35,18 @@ def suppress_subprocess_windows():
         # 保存原始函数
         subprocess._old_popen = subprocess.Popen
         subprocess._old_run = subprocess.run
-        subprocess._old_call = subprocess.call
-        subprocess._old_check_call = subprocess.check_call
-        subprocess._old_check_output = subprocess.check_output
-        subprocess._old_getstatusoutput = subprocess.getstatusoutput if hasattr(subprocess, 'getstatusoutput') else None
-        subprocess._old_getoutput = subprocess.getoutput if hasattr(subprocess, 'getoutput') else None
         
-        # 重写Popen
+        # 重写Popen - 这是最核心的，所有子进程创建函数最终都会调用它
         def _new_popen(*args, **kwargs):
             kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
             return subprocess._old_popen(*args, **kwargs)
         subprocess.Popen = _new_popen
         
-        # 重写run
+        # 重写run - 这是Python 3.5+推荐的高级API
         def _new_run(*args, **kwargs):
             kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
             return subprocess._old_run(*args, **kwargs)
         subprocess.run = _new_run
-        
-        # 重写call
-        def _new_call(*args, **kwargs):
-            kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
-            return subprocess._old_call(*args, **kwargs)
-        subprocess.call = _new_call
-        
-        # 重写check_call
-        def _new_check_call(*args, **kwargs):
-            kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
-            return subprocess._old_check_call(*args, **kwargs)
-        subprocess.check_call = _new_check_call
-        
-        # 重写check_output
-        def _new_check_output(*args, **kwargs):
-            kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
-            return subprocess._old_check_output(*args, **kwargs)
-        subprocess.check_output = _new_check_output
-        
-        # 重写getstatusoutput
-        if subprocess._old_getstatusoutput:
-            def _new_getstatusoutput(cmd, *args, **kwargs):
-                # getstatusoutput内部会调用Popen，所以不需要额外设置creationflags
-                return subprocess._old_getstatusoutput(cmd, *args, **kwargs)
-            subprocess.getstatusoutput = _new_getstatusoutput
-        
-        # 重写getoutput
-        if subprocess._old_getoutput:
-            def _new_getoutput(cmd, *args, **kwargs):
-                # getoutput内部会调用Popen，所以不需要额外设置creationflags
-                return subprocess._old_getoutput(cmd, *args, **kwargs)
-            subprocess.getoutput = _new_getoutput
-
-        # 尝试覆盖可能存在的其他子进程创建函数
-        for func_name in ['subprocess', 'call', 'run', 'check_call', 'check_output', 'getstatusoutput', 'getoutput']:
-            if hasattr(subprocess, func_name):
-                original_func = getattr(subprocess, func_name)
-                if callable(original_func) and not func_name.startswith('_old_'):
-                    def wrapper(*args, **kwargs):
-                        kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
-                        return original_func(*args, **kwargs)
-                    setattr(subprocess, func_name, wrapper)
-
-        # 对于直接使用os模块创建进程的情况
-        if hasattr(os, 'system'):
-            os._old_system = os.system
-            def _new_system(cmd):
-                import subprocess
-                return subprocess.run(cmd, shell=True, creationflags=create_no_window)
-            os.system = _new_system
-
-        # 对于os.startfile，确保不创建控制台窗口
-        if hasattr(os, 'startfile'):
-            os._old_startfile = os.startfile
-            def _new_startfile(path, operation=None):
-                import subprocess
-                subprocess.Popen(path, creationflags=subprocess.CREATE_NO_WINDOW)
-            os.startfile = _new_startfile
 
 def get_unique_filename(base_name, extension):
     """生成唯一的文件名，避免覆盖已存在的文件"""

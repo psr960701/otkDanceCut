@@ -5,6 +5,7 @@ import threading
 import os
 import json
 import sys
+import time
 from collections import OrderedDict
 
 # 新增：动态获取ffprobe路径函数
@@ -67,8 +68,8 @@ class LRUCache:
         with self.lock:
             self.cache.clear()
 
-def load_duration_cache(cache_file):
-    """从JSON文件加载时长缓存"""
+def load_duration_cache(cache_file, ttl=30*24*60*60):  # 默认TTL为30天
+    """从JSON文件加载时长缓存，并应用TTL过滤"""
     duration_cache = {}
     try:
         old_cache = {}
@@ -76,20 +77,30 @@ def load_duration_cache(cache_file):
             with open(cache_file, 'r', encoding='utf-8') as f:
                 old_cache = json.load(f)
         
-        # 处理旧缓存数据，转换为新格式
+        current_time = time.time()
+        
+        # 处理旧缓存数据，转换为新格式并应用TTL过滤
         for old_key, old_value in old_cache.items():
             try:
                 # 提取文件名作为新的缓存键
                 if isinstance(old_value, dict) and "duration" in old_value:
-                    # 已经是新格式，直接使用
+                    # 已经是新格式
                     cache_key = os.path.basename(old_key)
-                    duration_cache[cache_key] = old_value
+                    # 检查TTL
+                    if "cache_time" in old_value and (current_time - old_value["cache_time"]) <= ttl:
+                        duration_cache[cache_key] = old_value
+                    elif "cache_time" not in old_value:
+                        # 没有缓存时间的旧条目，保留但更新缓存时间
+                        duration_cache[cache_key] = {
+                            "duration": old_value["duration"],
+                            "cache_time": current_time
+                        }
                 else:
                     # 旧格式，转换为新格式
                     cache_key = os.path.basename(old_key)
                     duration_cache[cache_key] = {
                         "duration": old_value,
-                        "cache_time": time.time()  # 使用当前时间作为缓存时间
+                        "cache_time": current_time  # 使用当前时间作为缓存时间
                     }
             except Exception as e:
                 print(f"转换缓存键 {old_key} 失败：{e}")
@@ -97,7 +108,7 @@ def load_duration_cache(cache_file):
                 cache_key = os.path.basename(old_key)
                 duration_cache[cache_key] = {
                     "duration": old_value,
-                    "cache_time": time.time()
+                    "cache_time": current_time
                 }
     except Exception as e:
         print(f"加载时长缓存失败：{e}")
@@ -112,19 +123,19 @@ def save_duration_cache(cache_file, duration_cache):
     except Exception as e:
         print(f"保存时长缓存失败：{e}")
 
-import time
-
-def get_audio_duration(file_path, duration_cache):
-    """获取音频文件的时长，优先从缓存获取，没有时计算并更新缓存"""
+def get_audio_duration(file_path, duration_cache, ttl=30*24*60*60):  # 默认TTL为30天
+    """获取音频文件的时长，优先从缓存获取（考虑TTL），没有时计算并更新缓存"""
     # 仅使用文件名作为缓存键
     abs_path = os.path.abspath(file_path)
     cache_key = os.path.basename(abs_path)
     
-    # 检查缓存
+    # 检查缓存并验证TTL
     if cache_key in duration_cache:
-        return duration_cache[cache_key]["duration"]
-    
-    # 检查是否有同名文件已在缓存中（已修改为仅使用文件名，此检查已不再需要）
+        cached_entry = duration_cache[cache_key]
+        # 检查缓存是否过期
+        if "cache_time" in cached_entry and (time.time() - cached_entry["cache_time"]) <= ttl:
+            return cached_entry["duration"]
+        # 缓存过期，需要重新计算
     
     try:
         from pydub import AudioSegment
