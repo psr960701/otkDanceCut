@@ -53,6 +53,9 @@ logs/
 build/
 音乐剪辑器/
 
+# 程序生成的输出文件
+output*.txt
+
 # IDE/编辑器文件
 .vscode/
 .idea/
