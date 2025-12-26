@@ -3,8 +3,10 @@
 
 import os
 import threading
+import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 
+from loguru import logger
 from src.utils import cache_utils
 
 class AudioProcessor:
@@ -15,6 +17,12 @@ class AudioProcessor:
         self.library_files = set()
         self.library_dir = os.path.join(program_dir, "曲库")
         self.program_dir = program_dir
+        
+        # 动态并发控制相关参数
+        self.max_workers = min(multiprocessing.cpu_count() + 1, 12)  # 最大线程数不超过12
+        self.low_load_workers = max(2, int(self.max_workers / 2))   # 低负载任务使用较少线程
+        self.high_load_workers = self.max_workers                  # 高负载任务使用较多线程
+        self.task_type = "low_load"  # 默认低负载任务
     
     def preload_audio(self, file_path):
         """预加载音频文件到缓存"""
@@ -31,18 +39,31 @@ class AudioProcessor:
                     self.audio_cache.put(abs_file, audio)
                 except Exception as e:
                     # 预加载失败不影响主流程，仅记录日志
-                    print(f"预加载音频失败 {os.path.basename(abs_file)}: {e}")
+                    logger.debug(f"预加载音频失败 {os.path.basename(abs_file)}: {e}")
             
             # 确保音频文件已缓存时长信息
             self.get_audio_duration(abs_file)
             return True
         except Exception as e:
-            print(f"预加载音频文件 {os.path.basename(file_path)} 失败：{e}")
+            logger.error(f"预加载音频文件 {os.path.basename(file_path)} 失败：{e}")
             return False
     
     def get_audio_duration(self, file_path):
         """获取音频文件的时长，优先从缓存获取，没有时计算并更新缓存"""
         return cache_utils.get_audio_duration(file_path, self.duration_cache)
+    
+    def get_worker_count(self, task_type=None):
+        """根据任务类型获取合适的线程数"""
+        current_task_type = task_type if task_type else self.task_type
+        if current_task_type == "high_load":
+            return self.high_load_workers
+        else:
+            return self.low_load_workers
+    
+    def set_task_type(self, task_type):
+        """设置当前任务类型"""
+        if task_type in ["low_load", "high_load"]:
+            self.task_type = task_type
     
     def save_duration_cache(self):
         """保存时长缓存到文件"""
@@ -127,8 +148,8 @@ class AudioProcessor:
                     
                     current_index = 0
                     for batch in batches:
-                        # 使用线程池处理当前批次
-                        with ThreadPoolExecutor(max_workers=4) as executor:
+                        # 使用动态线程数处理当前批次
+                        with ThreadPoolExecutor(max_workers=self.get_worker_count()) as executor:
                             batch_results = list(executor.map(_process_file, batch))
                             results.extend(batch_results)
                         
@@ -203,8 +224,8 @@ class AudioProcessor:
                     status_signal.emit(f"开始获取随舞文件时长，共 {len(audio_files)} 个")
                 
                 if use_concurrency:
-                    # 使用线程池并发获取时长，减少线程数避免卡顿
-                    with ThreadPoolExecutor(max_workers=4) as executor:
+                    # 使用动态线程数并发获取时长，减少线程数避免卡顿
+                    with ThreadPoolExecutor(max_workers=self.get_worker_count()) as executor:
                         results = list(executor.map(_get_file_duration, audio_files))
                         processed_count = sum(results)
                 else:
@@ -232,10 +253,10 @@ class AudioProcessor:
     
     def calculate_total_duration(self, file_list, countdown_file=None):
         """计算预计的总音频时长"""
-        print(f"calculate_total_duration被调用，文件列表：{file_list}")
-        print(f"文件列表长度：{len(file_list)}")
+        logger.debug(f"calculate_total_duration被调用，文件列表：{file_list}")
+        logger.debug(f"文件列表长度：{len(file_list)}")
         if not file_list:
-            print("文件列表为空，返回0")
+            logger.debug("文件列表为空，返回0")
             return 0
         
         total_seconds = 0
@@ -245,29 +266,29 @@ class AudioProcessor:
         if countdown_file and os.path.exists(countdown_file):
             try:
                 countdown_duration = self.get_audio_duration(countdown_file)
-                print(f"倒计时音频时长：{countdown_duration}")
+                logger.debug(f"倒计时音频时长：{countdown_duration}")
             except Exception as e:
-                print(f"计算倒计时时长失败：{e}")
+                logger.error(f"计算倒计时时长失败：{e}")
         else:
-            print(f"没有倒计时音频文件或文件不存在：{countdown_file}")
+            logger.debug(f"没有倒计时音频文件或文件不存在：{countdown_file}")
         
         # 计算所有音频文件的时长
-        print("开始计算所有音频文件的时长：")
+        logger.debug("开始计算所有音频文件的时长：")
         for file in file_list:
             try:
                 duration = self.get_audio_duration(file)
-                print(f"文件{os.path.basename(file)}的时长：{duration}")
+                logger.debug(f"文件{os.path.basename(file)}的时长：{duration}")
                 total_seconds += duration
             except Exception as e:
-                print(f"计算{os.path.basename(file)}时长失败：{e}")
+                logger.error(f"计算{os.path.basename(file)}时长失败：{e}")
         
-        print(f"所有音频文件总时长（不含倒计时）：{total_seconds}")
+        logger.debug(f"所有音频文件总时长（不含倒计时）：{total_seconds}")
         
         # 计算总时长（每个音频之间插入一个倒计时音频）
         if countdown_file and len(file_list) > 1:
             countdown_total = countdown_duration * (len(file_list) - 1)
-            print(f"倒计时总时长：{countdown_total}")
+            logger.debug(f"倒计时总时长：{countdown_total}")
             total_seconds += countdown_total
         
-        print(f"最终总时长：{total_seconds}")
+        logger.debug(f"最终总时长：{total_seconds}")
         return total_seconds

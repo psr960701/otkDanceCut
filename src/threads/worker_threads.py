@@ -67,14 +67,19 @@ class SplicingThread(QThread):
                     if countdown:
                         self.status_updated.emit(f"从缓存加载倒计时音频：{os.path.basename(self.countdown_file)}")
                     else:
-                        from pydub import AudioSegment
-                        # 支持多种音频格式
-                        countdown = AudioSegment.from_file(self.countdown_file)
-                        # 添加到缓存
-                        self.cache.put(self.countdown_file, countdown)
-                        self.status_updated.emit(f"已加载倒计时音频：{os.path.basename(self.countdown_file)}")
+                        try:
+                            from pydub import AudioSegment
+                            # 支持多种音频格式
+                            countdown = AudioSegment.from_file(self.countdown_file)
+                            # 添加到缓存
+                            self.cache.put(self.countdown_file, countdown)
+                            self.status_updated.emit(f"已加载倒计时音频：{os.path.basename(self.countdown_file)}")
+                        except Exception as load_e:
+                            self.status_updated.emit(f"加载倒计时音频失败：{load_e}")
+                            countdown = None
                 except Exception as e:
                     self.status_updated.emit(f"加载倒计时音频失败：{e}")
+                    countdown = None
             
             # 根据模式排序文件
             if self.mode == "random":
@@ -95,18 +100,22 @@ class SplicingThread(QThread):
                     # 检查缓存中是否已有该音频
                     audio = self.cache.get(abs_file)
                     if audio:
-                        if i % 5 == 0:  # 每5个文件更新一次状态
+                        if i % 10 == 0:  # 每10个文件更新一次状态，减少更新频率
                             self.status_updated.emit(f"从缓存加载：{os.path.basename(file)}")
                     else:
-                        from pydub import AudioSegment
-                        # 支持多种音频格式
-                        audio = AudioSegment.from_file(abs_file)
-                        # 添加渐强渐弱效果（2000ms）
-                        audio = audio.fade_in(2000).fade_out(2000)
-                        # 添加到缓存
-                        self.cache.put(abs_file, audio)
-                        if i % 5 == 0:  # 每5个文件更新一次状态
-                            self.status_updated.emit(f"已加载：{os.path.basename(file)}")
+                        try:
+                            from pydub import AudioSegment
+                            # 支持多种音频格式
+                            audio = AudioSegment.from_file(abs_file)
+                            # 添加渐强渐弱效果（2000ms）
+                            audio = audio.fade_in(2000).fade_out(2000)
+                            # 添加到缓存
+                            self.cache.put(abs_file, audio)
+                            if i % 10 == 0:  # 每10个文件更新一次状态，减少更新频率
+                                self.status_updated.emit(f"已加载：{os.path.basename(file)}")
+                        except Exception as load_e:
+                            self.status_updated.emit(f"加载{os.path.basename(file)}失败：{load_e}")
+                            continue
                     
                     # 添加到播放列表
                     playlist.append(os.path.basename(file))
@@ -118,10 +127,12 @@ class SplicingThread(QThread):
                     if countdown and i > 0:
                         segments.append(countdown)
                     
-                    # 更新进度
+                    # 更新进度，减少更新频率（每5%进度更新一次）
                     progress = int((i + 1) / total_files * 100)
-                    self.progress_updated.emit(progress)
-                    self.status_updated.emit(f"已添加：{os.path.basename(file)}")
+                    if i == 0 or progress % 5 == 0 or i == total_files - 1:
+                        self.progress_updated.emit(progress)
+                        if i % 10 == 0 or i == total_files - 1:  # 每10个文件或最后一个文件更新一次状态
+                            self.status_updated.emit(f"已添加 {i+1}/{total_files}：{os.path.basename(file)}")
                     
                 except Exception as e:
                     self.status_updated.emit(f"处理{os.path.basename(file)}失败：{e}")
@@ -138,14 +149,22 @@ class SplicingThread(QThread):
                         use_concurrency=self.use_concurrency,
                         status_callback=self.status_updated.emit
                     )
+                    self.status_updated.emit("音频片段拼接完成")
                 except Exception as e:
                     self.status_updated.emit(f"并行合并失败，将使用串行合并: {e}")
-                    # 降级到串行合并
-                    result = segments[0]
-                    if len(segments) > 1:
-                        result = sum(segments[1:], start=result)
-                
-                self.status_updated.emit("音频片段拼接完成")
+                    try:
+                        # 降级到串行合并
+                        if len(segments) > 1:
+                            result = segments[0]
+                            for seg in segments[1:]:
+                                result += seg
+                        else:
+                            result = segments[0]
+                        self.status_updated.emit("串行合并完成")
+                    except Exception as serial_e:
+                        self.status_updated.emit(f"串行合并也失败: {serial_e}")
+                        self.finished.emit(False, f"拼接音频失败: {serial_e}")
+                        return
             else:
                 result = None
             

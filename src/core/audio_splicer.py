@@ -8,6 +8,9 @@ from pydub import AudioSegment
 from datetime import timedelta
 import sys
 
+# 导入常量配置
+from src.constants import COUNTDOWN_FILENAMES, DANCE_DIR_NAME, OUTPUT_FILE_PREFIX, OUTPUT_FILE_EXTENSION
+
 def get_audio_files(directory):
     """获取目录下所有音频文件"""
     audio_extensions = ['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.wma']
@@ -68,25 +71,30 @@ def main():
     parser = argparse.ArgumentParser(description='音频拼接工具')
     parser.add_argument('--mode', choices=['random', 'sequential'], default='random',
                       help='拼接模式：random（随机）或 sequential（顺序）')
-    parser.add_argument('--output', default='output.mp3', help='输出文件名')
+    parser.add_argument('--output', default=f'{OUTPUT_FILE_PREFIX}{OUTPUT_FILE_EXTENSION}', help='输出文件名')
     
     args = parser.parse_args()
     
     # 检查倒计时文件是否存在
-    countdown_file = '倒计时.mp3'
-    if not os.path.exists(countdown_file):
-        print(f"警告：未找到{countdown_file}文件，将不添加过渡效果")
-        countdown = None
+    countdown = None
+    countdown_filename = None
+    for filename in COUNTDOWN_FILENAMES:
+        if os.path.exists(filename):
+            countdown_filename = filename
+            break
+    
+    if not countdown_filename:
+        print(f"警告：未找到倒计时音频文件，将不添加过渡效果")
     else:
         try:
-            countdown = AudioSegment.from_mp3(countdown_file)
-            print(f"已加载倒计时音频：{countdown_file} ({format_time(len(countdown)/1000)})")
+            countdown = AudioSegment.from_mp3(countdown_filename)
+            print(f"已加载倒计时音频：{countdown_filename} ({format_time(len(countdown)/1000)})")
         except Exception as e:
-            print(f"加载{countdown_file}失败：{e}")
+            print(f"加载{countdown_filename}失败：{e}")
             countdown = None
     
     # 获取随舞目录下的音频文件
-    dance_dir = '随舞'
+    dance_dir = DANCE_DIR_NAME
     audio_files = get_audio_files(dance_dir)
     
     if not audio_files:

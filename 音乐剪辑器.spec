@@ -26,8 +26,9 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
+    # 关闭UPX压缩以提高兼容性
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,

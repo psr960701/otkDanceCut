@@ -32,15 +32,17 @@ def suppress_subprocess_windows():
     if hasattr(subprocess, 'CREATE_NO_WINDOW'):
         create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
         
-        # 保存原始函数
+        # 保存原始类
         subprocess._old_popen = subprocess.Popen
         subprocess._old_run = subprocess.run
         
-        # 重写Popen - 这是最核心的，所有子进程创建函数最终都会调用它
-        def _new_popen(*args, **kwargs):
-            kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
-            return subprocess._old_popen(*args, **kwargs)
-        subprocess.Popen = _new_popen
+        # 重写Popen - 保持类的特性，以便其他模块可以继承
+        class NewPopen(subprocess._old_popen):
+            def __init__(self, *args, **kwargs):
+                kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
+                super().__init__(*args, **kwargs)
+        
+        subprocess.Popen = NewPopen
         
         # 重写run - 这是Python 3.5+推荐的高级API
         def _new_run(*args, **kwargs):

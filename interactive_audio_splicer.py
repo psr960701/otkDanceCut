@@ -15,7 +15,16 @@ import os
 import random
 import time
 import questionary
+import sys
 from pydub import AudioSegment
+
+# 确保当前目录在Python路径中
+project_root = os.path.dirname(os.path.abspath(__file__))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# 导入常量配置
+from src.constants import COUNTDOWN_FILENAMES, DANCE_DIR_NAME
 
 
 def get_audio_files(directory):
@@ -87,8 +96,7 @@ def main():
     print("\n开始拼接音频...")
     
     # 4. 拼接音频的核心逻辑
-    dance_dir = "随舞"
-    countdown_file = "倒计时.mp3"
+    dance_dir = DANCE_DIR_NAME
     
     # 获取音频文件列表
     audio_files = get_audio_files(dance_dir)
@@ -97,11 +105,18 @@ def main():
         return
     
     # 加载倒计时音频
-    if os.path.exists(countdown_file):
-        countdown = AudioSegment.from_mp3(countdown_file)
-        print(f"已加载倒计时音频：{countdown_file}")
+    countdown = None
+    countdown_filename = None
+    for filename in COUNTDOWN_FILENAMES:
+        if os.path.exists(filename):
+            countdown_filename = filename
+            break
+    
+    if countdown_filename:
+        countdown = AudioSegment.from_mp3(countdown_filename)
+        print(f"已加载倒计时音频：{countdown_filename}")
     else:
-        print(f"警告：未找到倒计时音频 {countdown_file}，将不添加过渡")
+        print(f"警告：未找到倒计时音频文件，将不添加过渡")
         countdown = None
     
     print()
