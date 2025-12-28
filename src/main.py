@@ -1,8 +1,50 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# 在最开始就设置环境变量，在任何导入之前 - 使用ctypes确保环境变量立即生效
+import ctypes
 import sys
+
+# 使用ctypes直接设置环境变量，绕过Python的os模块
+libc = ctypes.CDLL('msvcrt.dll' if sys.platform == 'win32' else 'libc.so.6')
+
+# 设置环境变量的函数
+if sys.platform == 'win32':
+    setenv = libc._putenv_s
+    setenv.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    setenv.restype = ctypes.c_int
+    
+    def set_environment_var(name, value):
+        return setenv(name.encode('utf-8'), value.encode('utf-8'))
+else:
+    setenv = libc.setenv
+    setenv.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
+    setenv.restype = ctypes.c_int
+    
+    def set_environment_var(name, value):
+        return setenv(name.encode('utf-8'), value.encode('utf-8'), 1)
+
+# 设置环境变量来抑制libpng警告 - 更全面的设置
+set_environment_var('PNG_SKIP_sRGB_CHECK', '1')
+set_environment_var('PNG_SKIP_iCCP_CHECK', '1')
+set_environment_var('PNG_SKIP_sRGB_GAMMA_CHECK', '1')
+set_environment_var('PNG_SKIP_ALL_CHECKS', '1')
+set_environment_var('LC_ALL', 'C')
+set_environment_var('QT_LOGGING_RULES', '*.debug=false;*.warning=false;qt.imageio.*=false;qt.qpa.*=false;libpng.*=false')
+set_environment_var('QT_MESSAGE_PATTERN', '')
+set_environment_var('QT_LOGGING_TO_CONSOLE', 'false')
+
+# 现在导入其他模块
 import os
+import warnings
+
+# 立即过滤所有警告
+warnings.filterwarnings("ignore", message=".*libpng warning.*")
+warnings.filterwarnings("ignore", message=".*iCCP.*")
+warnings.filterwarnings("ignore", message=".*cHRM chunk.*")
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
 import pathlib
 
 # 将项目根目录添加到Python路径中，解决模块导入问题
@@ -16,10 +58,22 @@ else:
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# 首先导入并调用抑制功能，确保在任何子进程调用之前执行
+# 然后导入并调用其他抑制功能
 from src.utils import utils
-utils.suppress_libpng_warnings()
 utils.suppress_subprocess_windows()
+
+# 重定向标准错误输出，过滤libpng警告
+original_stderr = sys.stderr
+
+class LibpngWarningFilter:
+    def write(self, message):
+        if "libpng warning" not in message and "iCCP" not in message and "cHRM" not in message:
+            original_stderr.write(message)
+    
+    def flush(self):
+        original_stderr.flush()
+
+sys.stderr = LibpngWarningFilter()
 
 # 然后再导入其他模块
 import random
