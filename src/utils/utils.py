@@ -14,50 +14,18 @@ def suppress_libpng_warnings():
     import logging
     import warnings
     
-    # 在函数最开始设置环境变量，确保在任何导入或操作之前生效
-    # 设置环境变量来抑制libpng警告 - 更全面的设置
+    # 设置环境变量来抑制libpng警告
     os.environ['PNG_SKIP_sRGB_CHECK'] = '1'
     os.environ['PNG_SKIP_iCCP_CHECK'] = '1'
-    os.environ['PNG_SKIP_sRGB_GAMMA_CHECK'] = '1'
-    os.environ['PNG_SKIP_ALL_CHECKS'] = '1'
-    os.environ['LC_ALL'] = 'C'  # 确保区域设置不会影响警告输出
-    os.environ['QT_LOGGING_RULES'] = '*.debug=false;*.warning=false;qt.imageio.*=false;qt.qpa.*=false;libpng.*=false'
-    os.environ['QT_MESSAGE_PATTERN'] = ''
-    os.environ['QT_LOGGING_TO_CONSOLE'] = 'false'
     
-    # 过滤掉libpng相关的各种警告
-    warnings.filterwarnings("ignore", message=".*libpng warning.*", category=RuntimeWarning)
-    warnings.filterwarnings("ignore", message=".*libpng warning.*", category=UserWarning)
-    warnings.filterwarnings("ignore", message=".*libpng warning.*", category=DeprecationWarning)
-    warnings.filterwarnings("ignore", message=".*iCCP.*", category=RuntimeWarning)
-    warnings.filterwarnings("ignore", message=".*cHRM chunk.*", category=RuntimeWarning)
-    
-    # 更通用的警告过滤
+    # 过滤掉libpng相关的警告
     warnings.filterwarnings("ignore", category=RuntimeWarning, module="png")
     warnings.filterwarnings("ignore", category=UserWarning, module="png")
-    warnings.filterwarnings("ignore", category=RuntimeWarning, module="PIL")
-    warnings.filterwarnings("ignore", category=UserWarning, module="PIL")
     
-    # 配置日志记录器过滤libpng警告
+    # 配置日志记录器
     logger = logging.getLogger()
     for handler in logger.handlers:
-        handler.addFilter(lambda record: "libpng" not in record.getMessage().lower())
-        handler.addFilter(lambda record: "iCCP" not in record.getMessage())
-        handler.addFilter(lambda record: "cHRM" not in record.getMessage())
-    
-    # 重定向标准错误输出，过滤libpng警告
-    import sys
-    original_stderr = sys.stderr
-    
-    class LibpngWarningFilter:
-        def write(self, message):
-            if "libpng warning" not in message and "iCCP" not in message and "cHRM" not in message:
-                original_stderr.write(message)
-        
-        def flush(self):
-            original_stderr.flush()
-    
-    sys.stderr = LibpngWarningFilter()
+        handler.addFilter(lambda record: "libpng" not in record.getMessage())
 
 
 def suppress_subprocess_windows():
@@ -68,75 +36,18 @@ def suppress_subprocess_windows():
         subprocess._old_popen = subprocess.Popen
         subprocess._old_run = subprocess.run
         
-        # 过滤子进程输出中的libpng警告
-        def filter_libpng_output(output):
-            if output is None:
-                return output
-            if isinstance(output, bytes):
-                output_str = output.decode('utf-8', errors='ignore')
-            else:
-                output_str = str(output)
-            
-            # 过滤掉所有libpng相关的警告行
-            filtered_lines = []
-            for line in output_str.split('\n'):
-                if 'libpng warning' not in line and 'iCCP' not in line and 'cHRM' not in line:
-                    filtered_lines.append(line)
-            
-            if isinstance(output, bytes):
-                return '\n'.join(filtered_lines).encode('utf-8')
-            else:
-                return '\n'.join(filtered_lines)
-        
         # 重写Popen - 保持类的特性，以便其他模块可以继承
         class NewPopen(subprocess._old_popen):
             def __init__(self, *args, **kwargs):
                 kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
-                
-                # 设置stderr和stdout的处理方式
-                if kwargs.get('stderr') == subprocess.PIPE:
-                    kwargs['stderr'] = subprocess.PIPE
-                elif kwargs.get('stderr') is None:
-                    kwargs['stderr'] = subprocess.PIPE
-                
-                if kwargs.get('stdout') == subprocess.PIPE:
-                    kwargs['stdout'] = subprocess.PIPE
-                elif kwargs.get('stdout') is None:
-                    kwargs['stdout'] = subprocess.PIPE
-                
                 super().__init__(*args, **kwargs)
-            
-            def communicate(self, input=None, timeout=None):
-                stdout, stderr = super().communicate(input=input, timeout=timeout)
-                return filter_libpng_output(stdout), filter_libpng_output(stderr)
-            
-            def stdout(self):
-                return super().stdout
-            
-            def stderr(self):
-                return super().stderr
         
         subprocess.Popen = NewPopen
         
         # 重写run - 这是Python 3.5+推荐的高级API
         def _new_run(*args, **kwargs):
             kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
-            
-            # 设置stderr和stdout
-            if 'stderr' not in kwargs or kwargs['stderr'] is None:
-                kwargs['stderr'] = subprocess.PIPE
-            if 'stdout' not in kwargs or kwargs['stdout'] is None:
-                kwargs['stdout'] = subprocess.PIPE
-            
-            result = subprocess._old_run(*args, **kwargs)
-            
-            # 过滤输出
-            if hasattr(result, 'stdout'):
-                result.stdout = filter_libpng_output(result.stdout)
-            if hasattr(result, 'stderr'):
-                result.stderr = filter_libpng_output(result.stderr)
-            
-            return result
+            return subprocess._old_run(*args, **kwargs)
         subprocess.run = _new_run
 
 def get_unique_filename(base_name, extension):
