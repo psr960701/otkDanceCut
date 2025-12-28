@@ -87,7 +87,7 @@ def main():
         print(f"警告：未找到倒计时音频文件，将不添加过渡效果")
     else:
         try:
-            countdown = AudioSegment.from_mp3(countdown_filename)
+            countdown = load_audio(countdown_filename)
             print(f"已加载倒计时音频：{countdown_filename} ({format_time(len(countdown)/1000)})")
         except Exception as e:
             print(f"加载{countdown_filename}失败：{e}")
@@ -104,7 +104,7 @@ def main():
     print(f"\n找到{len(audio_files)}个音频文件：")
     for i, file in enumerate(audio_files, 1):
         try:
-            audio = AudioSegment.from_mp3(file)
+            audio = load_audio(file)
             print(f"{i}. {os.path.basename(file)} ({format_time(len(audio)/1000)})")
         except Exception as e:
             print(f"{i}. {os.path.basename(file)} (加载失败: {e})")
@@ -127,7 +127,7 @@ def main():
     for i, file in enumerate(audio_files):
         try:
             # 加载音频
-            audio = AudioSegment.from_mp3(file)
+            audio = load_audio(file)
             file_duration = len(audio) / 1000
             total_duration += file_duration
             

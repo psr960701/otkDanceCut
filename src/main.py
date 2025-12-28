@@ -63,6 +63,9 @@ class MusicCutterApp(QMainWindow):
         # 安装事件过滤器
         self.ui.file_list_widget.installEventFilter(self)
         
+        # 连接列表项移动信号到槽函数，用于更新文件列表顺序
+        self.ui.file_list_widget.model().rowsMoved.connect(self.update_file_list_order)
+        
         # 初始化应用程序状态
         self.file_list = []
         self.countdown_file = None
@@ -164,16 +167,33 @@ class MusicCutterApp(QMainWindow):
         try:
             dance_files = self.audio_processor.auto_load_dance_files(progress_signal, status_signal, self.use_concurrency)
             
+            # 添加调试信息
+            print(f"dance_files类型: {type(dance_files)}")
+            print(f"dance_files内容: {dance_files}")
+            
             if dance_files:
                 # 清空当前列表
                 self.ui.file_list_widget.clear()
                 self.file_list = []
                 
+                # 保存原始的文件列表，用于拖动后重新构建
+                self.original_dance_files = dance_files.copy()
+                
                 # 优化：直接添加文件到列表，不预加载完整音频
-                for file_path in dance_files:
+                for i, file_path in enumerate(dance_files):
+                    # 添加调试信息
+                    print(f"第{i}个文件: {file_path}")
+                    print(f"文件路径类型: {type(file_path)}")
+                    
                     # 只添加到列表和列表控件，不预加载完整音频
                     self.file_list.append(file_path)
-                    self.ui.file_list_widget.addItem(os.path.basename(file_path))
+                    # 将完整文件路径存储在Item的data中，方便后续拖动排序后获取
+                    file_name = os.path.basename(file_path)
+                    print(f"文件名: {file_name}")
+                    
+                    item = self.ui.file_list_widget.addItem(file_name)
+                    print(f"item类型: {type(item)}")
+                    print(f"item: {item}")
                 
                 # 计算预计总时长并更新状态栏
                 total_seconds = self.audio_processor.calculate_total_duration(
@@ -231,7 +251,20 @@ class MusicCutterApp(QMainWindow):
             
             # 添加到列表
             self.file_list.append(file_path)
-            self.ui.file_list_widget.addItem(os.path.basename(file_path))
+            # 将完整文件路径存储在Item的data中，方便后续拖动排序后获取
+            item = self.ui.file_list_widget.addItem(os.path.basename(file_path))
+            if item:
+                # 打印Qt.UserRole的实际值
+                print(f"Qt.UserRole的值: {Qt.UserRole}")
+                print(f"Qt.UserRole + 1的值: {Qt.UserRole + 1}")
+                
+                # 使用自定义的整数键来存储文件路径，确保数据能够正确存储和读取
+                item.setData(1000, file_path)
+                print(f"添加文件 {os.path.basename(file_path)}，设置数据键1000: {file_path}")
+                
+                # 立即验证数据是否正确设置
+                test_data = item.data(1000)
+                print(f"立即验证数据: {test_data}")
             return True
         except Exception as e:
             print(f"添加文件失败 {os.path.basename(file_path)}: {e}")
@@ -242,8 +275,16 @@ class MusicCutterApp(QMainWindow):
         current_item = self.ui.file_list_widget.currentItem()
         if current_item:
             row = self.ui.file_list_widget.row(current_item)
+            # 获取要移除的文件路径，用于在file_list中查找
+            file_path = current_item.data(1000)
+            # 从UI中移除
             self.ui.file_list_widget.takeItem(row)
-            del self.file_list[row]
+            # 从file_list中移除对应的文件路径
+            if file_path in self.file_list:
+                self.file_list.remove(file_path)
+            else:
+                # 如果找不到，则按索引移除（作为备选方案）
+                del self.file_list[row]
             self.ui.status_label.setText("已移除选中文件")
             self.update_duration_label()
     
@@ -290,6 +331,62 @@ class MusicCutterApp(QMainWindow):
                 return True
         return super().eventFilter(obj, event)
     
+    def update_file_list_order(self):
+        """当列表项移动后，更新文件列表顺序"""
+        # 遍历列表控件中的所有项，按顺序重新构建文件列表
+        count = self.ui.file_list_widget.count()
+        print(f"列表控件中的项数量：{count}")
+        
+        # 准备一个所有可能的文件路径集合（原始文件 + 当前列表中的文件）
+        all_files = set()
+        if hasattr(self, 'original_dance_files'):
+            all_files.update(self.original_dance_files)
+        # 添加当前文件列表中的所有文件（处理手动添加的文件）
+        all_files.update(self.file_list)
+        
+        # 清空当前文件列表
+        self.file_list.clear()
+        
+        for i in range(count):
+            # 获取项
+            item = self.ui.file_list_widget.item(i)
+            print(f"第{i}个item: {item}")
+            
+            if item:
+                # 获取item显示的文本（文件名）
+                item_text = item.text()
+                print(f"  item文本: {item_text}")
+                
+                # 首先尝试使用data()方法获取文件路径
+                file_path = item.data(1000)
+                if file_path:
+                    print(f"  从data获取到文件路径: {file_path}")
+                    self.file_list.append(file_path)
+                else:
+                    # 如果data()方法失败，尝试通过文件名匹配查找完整路径
+                    print(f"  从data获取文件路径失败，尝试文件名匹配")
+                    
+                    # 在所有可能的文件中查找匹配的文件名
+                    for full_path in all_files:
+                        if os.path.basename(full_path) == item_text:
+                            print(f"  通过文件名匹配找到文件路径: {full_path}")
+                            self.file_list.append(full_path)
+                            # 从集合中移除已匹配的文件，避免重复匹配
+                            all_files.remove(full_path)
+                            break
+                    else:
+                        print(f"  警告：未找到匹配的文件路径: {item_text}")
+            else:
+                print(f"  警告：第{i}个item为None")
+        
+        # 调试输出新的文件列表顺序
+        print("文件列表顺序已更新：")
+        for i, file_path in enumerate(self.file_list):
+            print(f"{i+1}. {os.path.basename(file_path)}")
+        
+        # 更新预计时长标签
+        self.update_duration_label()
+    
     def select_countdown(self):
         """选择倒计时音频文件"""
         options = QFileDialog.Options()
@@ -329,7 +426,7 @@ class MusicCutterApp(QMainWindow):
             
             # 获取拼接模式
             mode = "sequential"
-            if self.mode_combo.currentText() == "随机拼接":
+            if self.ui.mode_combo.currentText() == "随机拼接":
                 mode = "random"
             
             # 创建并启动拼接线程
@@ -383,7 +480,11 @@ class MusicCutterApp(QMainWindow):
             QMessageBox.critical(self, "拼接失败", message)
 
 if __name__ == '__main__':
+    print("开始运行程序...")
     app = QApplication(sys.argv)
+    print("创建QApplication实例...")
     main_window = MusicCutterApp()
+    print("创建MusicCutterApp实例...")
     main_window.show()
+    print("显示窗口...")
     sys.exit(app.exec_())

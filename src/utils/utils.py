@@ -106,8 +106,8 @@ def parallel_merge(segments, num_workers=8, min_segments=50, use_concurrency=Tru
     
     # 确保分块数是2的幂次方
     num_chunks = next_power_of_2(len(segments))
-    if num_chunks < 4:
-        num_chunks = 4  # 至少8块
+    if num_chunks < 8:
+        num_chunks = 8  # 至少8块
     
     # 计算每块的大小
     chunk_size = (len(segments) + num_chunks - 1) // num_chunks
