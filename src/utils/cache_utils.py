@@ -6,37 +6,83 @@ import os
 import json
 import sys
 import time
+import platform
 from collections import OrderedDict
 
-# 新增：动态获取ffprobe路径函数
+# 跨平台 ffmpeg/ffprobe 路径获取
 def get_ffprobe_path():
     """
-    根据运行环境动态获取ffprobe路径
-    在开发环境中使用项目内的ffmpeg/ffprobe.exe
-    在打包环境中使用打包后的ffprobe.exe
+    根据运行环境和操作系统动态获取ffprobe路径
+    macOS/Linux: 使用系统的 ffprobe (需 brew/apt 安装)
+    Windows: 使用项目内的 ffmpeg/ffprobe.exe
     """
+    system = platform.system()
+    
+    # 打包环境
     if getattr(sys, 'frozen', False):
-        # 打包环境
-        base_path = sys._MEIPASS
-    else:
-        # 开发环境，获取项目根目录
+        if system == 'Darwin':  # macOS
+            # 尝试打包后的路径
+            base_path = os.path.dirname(sys.executable)
+            bundled = os.path.join(base_path, 'ffprobe')
+            if os.path.exists(bundled):
+                return bundled
+            # PyInstaller onedir 模式
+            bundled2 = os.path.join(base_path, '..', 'Resources', 'ffprobe')
+            if os.path.exists(bundled2):
+                return bundled2
+            # 降级到系统 ffprobe
+            return 'ffprobe'
+        elif system == 'Windows':
+            base_path = sys._MEIPASS
+            return os.path.join(base_path, 'ffmpeg', 'ffprobe.exe')
+        else:  # Linux
+            return 'ffprobe'
+    
+    # 开发环境
+    if system == 'Windows':
         base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    return os.path.join(base_path, 'ffmpeg', 'ffprobe.exe')
+        ffprobe_path = os.path.join(base_path, 'ffmpeg', 'ffprobe.exe')
+        if os.path.exists(ffprobe_path):
+            return ffprobe_path
+    
+    # macOS/Linux 使用系统 ffprobe
+    return 'ffprobe'
 
-# 新增：动态获取ffmpeg路径函数
+
 def get_ffmpeg_path():
     """
-    根据运行环境动态获取ffmpeg路径
-    在开发环境中使用项目内的ffmpeg/ffmpeg.exe
-    在打包环境中使用打包后的ffmpeg.exe
+    根据运行环境和操作系统动态获取ffmpeg路径
+    macOS/Linux: 使用系统的 ffmpeg (需 brew/apt 安装)
+    Windows: 使用项目内的 ffmpeg/ffmpeg.exe
     """
+    system = platform.system()
+    
+    # 打包环境
     if getattr(sys, 'frozen', False):
-        # 打包环境
-        base_path = sys._MEIPASS
-    else:
-        # 开发环境，获取项目根目录
+        if system == 'Darwin':  # macOS
+            base_path = os.path.dirname(sys.executable)
+            bundled = os.path.join(base_path, 'ffmpeg')
+            if os.path.exists(bundled):
+                return bundled
+            bundled2 = os.path.join(base_path, '..', 'Resources', 'ffmpeg')
+            if os.path.exists(bundled2):
+                return bundled2
+            return 'ffmpeg'
+        elif system == 'Windows':
+            base_path = sys._MEIPASS
+            return os.path.join(base_path, 'ffmpeg', 'ffmpeg.exe')
+        else:  # Linux
+            return 'ffmpeg'
+    
+    # 开发环境
+    if system == 'Windows':
         base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    return os.path.join(base_path, 'ffmpeg', 'ffmpeg.exe')
+        ffmpeg_path = os.path.join(base_path, 'ffmpeg', 'ffmpeg.exe')
+        if os.path.exists(ffmpeg_path):
+            return ffmpeg_path
+    
+    # macOS/Linux 使用系统 ffmpeg
+    return 'ffmpeg'
 
 class LRUCache:
     def __init__(self, capacity=100):
