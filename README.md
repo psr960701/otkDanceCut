@@ -53,7 +53,28 @@
 pip install -r requirements.txt
 ```
 
-### requirements.txt中文注释问题
+### macOS 环境配置
+
+1. **安装 ffmpeg**（必须）：
+   ```bash
+   brew install ffmpeg
+   ```
+
+2. **运行程序**：
+   ```bash
+   python src/main.py
+   ```
+
+3. **打包为 macOS 应用**：
+   ```bash
+   pip install pyinstaller
+   pyinstaller 音乐剪辑器-mac.spec
+   ```
+   打包后的应用位于 `dist/音乐剪辑器.app`
+
+### Windows 环境配置
+
+#### requirements.txt中文注释问题
 
 在Windows系统中，当requirements.txt文件包含中文注释时，使用`pip install -r requirements.txt`可能会遇到编码错误。
 

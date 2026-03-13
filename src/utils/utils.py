@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import subprocess
 import re
+import platform
 from concurrent.futures import ThreadPoolExecutor
 
 # 禁止子进程弹出窗口
@@ -29,6 +31,10 @@ def suppress_libpng_warnings():
 
 
 def suppress_subprocess_windows():
+    """仅在 Windows 上禁用子进程弹窗，Mac/Linux 上跳过"""
+    if platform.system() != 'Windows':
+        return
+    
     if hasattr(subprocess, 'CREATE_NO_WINDOW'):
         create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
         
@@ -49,6 +55,63 @@ def suppress_subprocess_windows():
             kwargs['creationflags'] = kwargs.get('creationflags', 0) | create_no_window
             return subprocess._old_run(*args, **kwargs)
         subprocess.run = _new_run
+
+
+def get_ffmpeg_path():
+    """获取 ffmpeg 可执行文件路径，支持跨平台"""
+    system = platform.system()
+    
+    # 如果是通过 PyInstaller 打包的版本
+    if getattr(sys, 'frozen', False):
+        if system == 'Windows':
+            return os.path.join(os.path.dirname(sys.executable), 'ffmpeg', 'ffmpeg.exe')
+        elif system == 'Darwin':  # macOS
+            # Mac 打包版本中的 ffmpeg
+            bundled_path = os.path.join(os.path.dirname(sys.executable), 'ffmpeg')
+            if os.path.exists(bundled_path):
+                return bundled_path
+            # 或者尝试 Resources 目录 (PyInstaller onefile 模式)
+            resources_path = os.path.join(os.path.dirname(sys.executable), '..', 'Resources', 'ffmpeg')
+            if os.path.exists(resources_path):
+                return resources_path
+    
+    # 开发环境：优先使用系统安装的 ffmpeg
+    # Mac: brew install ffmpeg
+    # Linux: apt install ffmpeg
+    # Windows: 使用项目内的 ffmpeg 文件夹
+    
+    if system == 'Windows':
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        ffmpeg_path = os.path.join(project_root, 'ffmpeg', 'ffmpeg.exe')
+        if os.path.exists(ffmpeg_path):
+            return ffmpeg_path
+    
+    # Mac/Linux 使用系统 ffmpeg
+    return 'ffmpeg'  # 假设 ffmpeg 在 PATH 中
+
+
+def get_ffprobe_path():
+    """获取 ffprobe 可执行文件路径，支持跨平台"""
+    system = platform.system()
+    
+    if getattr(sys, 'frozen', False):
+        if system == 'Windows':
+            return os.path.join(os.path.dirname(sys.executable), 'ffmpeg', 'ffprobe.exe')
+        elif system == 'Darwin':  # macOS
+            bundled_path = os.path.join(os.path.dirname(sys.executable), 'ffprobe')
+            if os.path.exists(bundled_path):
+                return bundled_path
+            resources_path = os.path.join(os.path.dirname(sys.executable), '..', 'Resources', 'ffprobe')
+            if os.path.exists(resources_path):
+                return resources_path
+    
+    if system == 'Windows':
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        ffprobe_path = os.path.join(project_root, 'ffmpeg', 'ffprobe.exe')
+        if os.path.exists(ffprobe_path):
+            return ffprobe_path
+    
+    return 'ffprobe'
 
 def get_unique_filename(base_name, extension):
     """生成唯一的文件名，避免覆盖已存在的文件"""
