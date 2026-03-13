@@ -89,8 +89,16 @@ def main():
     with open(args.diff_file, "r", encoding="utf-8") as f:
         diff_content = f.read()
     
+    # 调试输出
+    print(f"Diff 文件大小: {len(diff_content)} 字符")
+    print(f"Diff 前 500 字符:\n{diff_content[:500]}")
+    
     if not diff_content.strip():
-        print("Diff 为空，跳过审查")
+        print("❌ Diff 为空，跳过审查")
+        print("可能原因：")
+        print("  1. PR 没有文件变更")
+        print("  2. GitHub API 获取 diff 失败")
+        print("  3. diff_url 不正确")
         return
 
     print(f"正在审查 PR #{args.pr_number}...")

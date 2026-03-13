@@ -31,13 +31,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 获取 PR diff
-          DIFF=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3.diff" \
-            "${{ github.event.pull_request.diff_url }}")
+          # 使用 GitHub API 获取 PR diff
+          echo "获取 PR #${{ github.event.pull_request.number }} 的 diff..."
           
-          # 保存到文件（避免命令行参数过长）
+          # 方法1: 使用 GitHub API
+          DIFF=$(curl -s -L \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3.diff" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}")
+          
+          # 调试输出
+          echo "Diff 长度: ${#DIFF} 字符"
+          
+          # 保存到文件
           echo "$DIFF" > /tmp/pr_diff.txt
+          
+          # 显示前几行用于调试
+          echo "Diff 前 500 字符:"
+          head -c 500 /tmp/pr_diff.txt
+          echo ""
+          
           echo "diff_file=/tmp/pr_diff.txt" >> $GITHUB_OUTPUT
 
       - name: AI Review
