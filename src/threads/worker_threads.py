@@ -120,12 +120,12 @@ class SplicingThread(QThread):
                     # 添加到播放列表
                     playlist.append(os.path.basename(file))
                     
-                    # 添加音频片段到列表
-                    segments.append(audio)
-                    
-                    # 如果有倒计时音频且不是第一个片段，添加倒计时
+                    # 如果有倒计时音频且不是第一个片段，在添加音频前先添加倒计时
                     if countdown and i > 0:
                         segments.append(countdown)
+                    
+                    # 添加音频片段到列表
+                    segments.append(audio)
                     
                     # 更新进度，减少更新频率（每5%进度更新一次）
                     progress = int((i + 1) / total_files * 100)
